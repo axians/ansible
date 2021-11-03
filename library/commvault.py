@@ -298,7 +298,7 @@ def main():
         operation=dict(type="str", required=True),
         entity=dict(type="dict", default={}),
         entity_type=dict(type="str", default=""),
-        commcell=dict(type="dict", default={}),
+        commcell=dict(type="dict", default={}, no_log=True),
         args=dict(type="dict", default={}),
     )
 
