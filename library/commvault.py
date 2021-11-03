@@ -17,11 +17,9 @@
 # --------------------------------------------------------------------------
 
 
-ANSIBLE_METADATA = {
-    'metadata_version': '11.16.0'
-}
+ANSIBLE_METADATA = {"metadata_version": "11.16.0"}
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 
 module: commvault
 
@@ -124,9 +122,9 @@ requirements:
 
     - Commvault Software v11 SP16 or later release with WebConsole installed
 
-'''
+"""
 
-EXAMPLES = '''
+EXAMPLES = """
 **Login to Commcell:**
 
       - name: Login
@@ -184,9 +182,9 @@ EXAMPLES = '''
             }
         register: restore_status
 
-'''
+"""
 
-RETURN = '''
+RETURN = """
 
 return name: output
 
@@ -196,7 +194,7 @@ sample: {
             output: "output of operation"
         }
 
-'''
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
@@ -205,7 +203,15 @@ from cvpysdk.exception import SDKException
 from cvpysdk.job import Job
 
 
-commcell = client = clients = agent = agents = instance = instances = backupset = backupsets = subclient = subclients = None
+commcell = (
+    client
+) = (
+    clients
+) = (
+    agent
+) = (
+    agents
+) = instance = instances = backupset = backupsets = subclient = subclients = None
 
 clientgroups = clientgroup = job = jobs = None
 
@@ -222,14 +228,16 @@ def login(module):
     """
     global commcell_object
 
-    if module.get('authtoken'):
-        commcell_object = Commcell(module['webconsole_hostname'], authtoken=module['authtoken'])
+    if module.get("authtoken"):
+        commcell_object = Commcell(
+            module["webconsole_hostname"], authtoken=module["authtoken"]
+        )
 
     else:
         commcell_object = Commcell(
-            webconsole_hostname=module['webconsole_hostname'],
-            commcell_username=module['commcell_username'],
-            commcell_password=module['commcell_password']
+            webconsole_hostname=module["webconsole_hostname"],
+            commcell_username=module["commcell_username"],
+            commcell_password=module["commcell_password"],
         )
 
 
@@ -251,65 +259,64 @@ def create_object(entity):
     """
     global commcell, client, clients, agent, agents, instance, instances, backupset, backupsets, subclient, subclients, result, clientgroup, clientgroups
     global job, jobs
-    
+
     commcell = commcell_object
     clients = commcell_object.clients
     clientgroups = commcell_object.client_groups
     jobs = commcell_object.job_controller
-    
-    if 'client' in entity:
 
-        client = clients.get(entity['client'])
+    if "client" in entity:
+
+        client = clients.get(entity["client"])
         agents = client.agents
 
-        if 'agent' in entity:
-            agent = agents.get(entity['agent'])
+        if "agent" in entity:
+            agent = agents.get(entity["agent"])
             instances = agent.instances
             backupsets = agent.backupsets
 
-            if 'instance' in entity:
-                instance = instances.get(entity['instance'])
+            if "instance" in entity:
+                instance = instances.get(entity["instance"])
                 subclients = instance.subclients
 
-            if 'backupset' in entity:
-                backupset = backupsets.get(entity['backupset'])
+            if "backupset" in entity:
+                backupset = backupsets.get(entity["backupset"])
                 subclients = backupset.subclients
 
-            if subclients and 'subclient' in entity:
-                subclient = subclients.get(entity['subclient'])
+            if subclients and "subclient" in entity:
+                subclient = subclients.get(entity["subclient"])
 
-    if 'job_id' in entity:
-        job = jobs.get(entity['job_id'])
-        
-    if 'clientgroup' in entity:
-        clientgroup = clientgroups.get(entity['clientgroup'])
+    if "job_id" in entity:
+        job = jobs.get(entity["job_id"])
+    if "clientgroup" in entity:
+        clientgroup = clientgroups.get(entity["clientgroup"])
 
 
 def main():
     """Main method for this module"""
     module_args = dict(
-        operation=dict(type='str', required=True),
+        operation=dict(type="str", required=True),
         entity=dict(type="dict", default={}),
-        entity_type=dict(type='str', default=''),
-        commcell=dict(type='dict', default={}),
-        args=dict(type='dict', default={})
+        entity_type=dict(type="str", default=""),
+        commcell=dict(type="dict", default={}),
+        args=dict(type="dict", default={}),
     )
 
-    module = AnsibleModule(
-        argument_spec=module_args,
-        supports_check_mode=True
-    )
+    module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
 
     global result
     result = dict()
-    if module.params['operation'].lower() == 'login':
-        login(module.params['entity'])
-        result['changed'] = True
-        result['authtoken'] = commcell_object.auth_token
-        result['webconsole_hostname'] = commcell_object.webconsole_hostname
+    if module.params["operation"].lower() == "login":
+        login(module.params["entity"])
+        result["changed"] = True
+        result["authtoken"] = commcell_object.auth_token
+        result["webconsole_hostname"] = commcell_object.webconsole_hostname
     else:
-        login(module.params['commcell'])
-        create_object(module.params['entity'])
+        try:
+            login(module.params["commcell"])
+            create_object(module.params["entity"])
+        except SDKException as sdk_exception:
+            module.fail_json(to_text(sdk_exception))
         # module.exit_json(**module.params['entity'])
 
         obj_name = module.params["entity_type"]
@@ -317,40 +324,42 @@ def main():
         method = module.params["operation"]
 
         if not hasattr(obj, method):
-            obj_name = '{}s'.format(module.params["entity_type"])
+            obj_name = "{}s".format(module.params["entity_type"])
             obj = eval(obj_name)
 
-        statement = '{0}.{1}'.format(obj_name, method)
+        statement = "{0}.{1}".format(obj_name, method)
         attr = getattr(obj, method)
 
         if callable(attr):
-            if module.params.get('args'):
+            if module.params.get("args"):
                 args = module.params["args"]
-                statement = '{0}(**{1})'.format(statement, args)
+                statement = "{0}(**{1})".format(statement, args)
             else:
-                statement = '{0}()'.format(statement)
+                statement = "{0}()".format(statement)
 
         else:
-            if module.params.get('args'):
-                statement = '{0} = list(module.params["args"].values())[0]'.format(statement)
+            if module.params.get("args"):
+                statement = '{0} = list(module.params["args"].values())[0]'.format(
+                    statement
+                )
                 try:
                     _ = exec(statement)
-                    result['output'] = "Property set successfully"
+                    result["output"] = "Property set successfully"
                     module.exit_json(**result)
                 except SDKException as sdk_exception:
                     module.fail_json(to_text(sdk_exception))
 
         output = eval(statement)
 
-        if type(output).__module__ in ['builtins', '__builtin__']:
-            result['output'] = output
+        if type(output).__module__ in ["builtins", "__builtin__"]:
+            result["output"] = output
         elif isinstance(output, Job):
-            result['output'] = output.job_id
+            result["output"] = output.job_id
         else:
-            result['output'] = str(output)
+            result["output"] = str(output)
 
     module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
