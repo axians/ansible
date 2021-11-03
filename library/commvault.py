@@ -342,7 +342,7 @@ def main():
 
         else:
             if module.params.get("args"):
-                statement = "{0} = list(module.params["args"].values())[0]".format(
+                statement = '{0} = list(module.params["args"].values())[0]'.format(
                     statement
                 )
                 try:
