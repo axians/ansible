@@ -307,10 +307,13 @@ def main():
     global result
     result = dict()
     if module.params["operation"].lower() == "login":
-        login(module.params["entity"])
-        result["changed"] = True
-        result["authtoken"] = commcell_object.auth_token
-        result["webconsole_hostname"] = commcell_object.webconsole_hostname
+        try:
+            login(module.params["entity"])
+            result["changed"] = True
+            result["authtoken"] = commcell_object.auth_token
+            result["webconsole_hostname"] = commcell_object.webconsole_hostname
+        except SDKException as sdk_exception:
+            module.fail_json(to_text(sdk_exception))
     else:
         try:
             login(module.params["commcell"])
