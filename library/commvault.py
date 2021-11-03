@@ -199,7 +199,9 @@ sample: {
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils._text import to_text
 from cvpysdk.commcell import Commcell
+from cvpysdk.exception import SDKException
 from cvpysdk.job import Job
 
 
@@ -331,9 +333,12 @@ def main():
         else:
             if module.params.get('args'):
                 statement = '{0} = list(module.params["args"].values())[0]'.format(statement)
-                exec(statement)
-                result['output'] = "Property set successfully"
-                module.exit_json(**result)
+                try:
+                    _ = exec(statement)
+                    result['output'] = "Property set successfully"
+                    module.exit_json(**result)
+                except SDKException as sdk_exception:
+                    module.fail_json(to_text(sdk_exception))
 
         output = eval(statement)
 
