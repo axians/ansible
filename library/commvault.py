@@ -201,6 +201,8 @@ from ansible.module_utils._text import to_text
 from cvpysdk.commcell import Commcell
 from cvpysdk.exception import SDKException
 from cvpysdk.job import Job
+import typing  # noqa F401
+from typing import Optional
 
 
 commcell = (
@@ -215,33 +217,42 @@ commcell = (
 
 clientgroups = clientgroup = job = jobs = None
 
-result = {}
+
+def login_token(webconsole_hostname: str, authtoken: str):
+    """
+    sign in the user to the commcell with token provided
+
+    Args:
+        webconsole_hostname (str)   -- the hostname of webconsole
+        authtoken (str)   -- the authtoken
+
+    """
+    params = {"webconsole_hostname": webconsole_hostname, "authtoken": authtoken}
+
+    return Commcell(**params)
 
 
-def login(module):
+def login_username_password(
+    webconsole_hostname: str, commcell_username: str, commcell_password: str
+):
     """
     sign in the user to the commcell with the credentials provided
 
     Args:
-        module (dict)   -- webconsole and authentication details
-
+        webconsole_hostname (str)   -- the hostname of webconsole
+        commcell_username (str)   -- the username to login with
+        commcell_password (str)   -- the password to login with
     """
-    global commcell_object
+    params = {
+        "webconsole_hostname": webconsole_hostname,
+        "commcell_username": commcell_username,
+        "commcell_password": commcell_password,
+    }
 
-    if module.get("authtoken"):
-        commcell_object = Commcell(
-            module["webconsole_hostname"], authtoken=module["authtoken"]
-        )
-
-    else:
-        commcell_object = Commcell(
-            webconsole_hostname=module["webconsole_hostname"],
-            commcell_username=module["commcell_username"],
-            commcell_password=module["commcell_password"],
-        )
+    return Commcell(**params)
 
 
-def create_object(entity):
+def create_object(entity: dict, commcell_object: Commcell):
     """
     To create the basic commvault objects
 
@@ -257,7 +268,7 @@ def create_object(entity):
             }
 
     """
-    global commcell, client, clients, agent, agents, instance, instances, backupset, backupsets, subclient, subclients, result, clientgroup, clientgroups
+    global commcell, client, clients, agent, agents, instance, instances, backupset, backupsets, subclient, subclients, clientgroup, clientgroups
     global job, jobs
 
     commcell = commcell_object
@@ -301,35 +312,47 @@ def main():
         commcell=dict(type="dict", default={}, no_log=True),
         args=dict(type="dict", default={}),
     )
-
     module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
 
-    global result
     result = dict()
+
+    entity = module.params.get("entity")
+    entity_type = module.params.get("entity_type")
+    commcell_args = module.params.get("commcell")
+
     if module.params["operation"].lower() == "login":
         try:
-            _ = login(module.params["entity"])
+            commcell_auth = login_username_password(**entity)
             result["changed"] = True
-            result["authtoken"] = commcell_object.auth_token
-            result["webconsole_hostname"] = commcell_object.webconsole_hostname
+            result["webconsole_hostname"] = commcell_auth.webconsole_hostname
+            result["authtoken"] = commcell_auth.auth_token
         except SDKException as sdk_exception:
             result["failed"] = True
-            module.fail_json(to_text(sdk_exception))
+            module.fail_json(msg=to_text(sdk_exception), **result)
     else:
         try:
-            _ = login(module.params["commcell"])
-            _ = create_object(module.params["entity"])
+            if (
+                "webconsole_hostname" not in commcell_args
+                and "authtoken" not in commcell_args
+            ):
+                module.fail_json(
+                    msg="You either need to login with operation 'login' or provide 'webconsole_hostname' and 'authtoken' in commcell"
+                )
+
+            commcell_auth = login_token(
+                commcell_args.get("webconsole_hostname"), commcell_args.get("authtoken")
+            )
+            _ = create_object(entity, commcell_auth)
         except SDKException as sdk_exception:
             result["failed"] = True
-            module.fail_json(to_text(sdk_exception))
-        # module.exit_json(**module.params['entity'])
+            module.fail_json(msg=to_text(sdk_exception), **result)
 
-        obj_name = module.params["entity_type"]
+        obj_name = entity_type
         obj = eval(obj_name)
         method = module.params["operation"]
 
         if not hasattr(obj, method):
-            obj_name = "{0}s".format(module.params["entity_type"])
+            obj_name = "{0}s".format(entity_type)
             obj = eval(obj_name)
 
         statement = "{0}.{1}".format(obj_name, method)
@@ -341,7 +364,6 @@ def main():
                 statement = "{0}(**{1})".format(statement, args)
             else:
                 statement = "{0}()".format(statement)
-
         else:
             if module.params.get("args"):
                 statement = '{0} = list(module.params["args"].values())[0]'.format(
@@ -353,7 +375,7 @@ def main():
                     module.exit_json(**result)
                 except SDKException as sdk_exception:
                     result["failed"] = True
-                    module.fail_json(to_text(sdk_exception))
+                    module.fail_json(msg=to_text(sdk_exception), **result)
 
         output = eval(statement)
 
