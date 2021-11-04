@@ -308,17 +308,21 @@ def main():
     result = dict()
     if module.params["operation"].lower() == "login":
         try:
-            login(module.params["entity"])
+            _ = login(module.params["entity"])
             result["changed"] = True
             result["authtoken"] = commcell_object.auth_token
             result["webconsole_hostname"] = commcell_object.webconsole_hostname
         except SDKException as sdk_exception:
+            result["failed"] = True
             module.fail_json(to_text(sdk_exception))
     else:
         try:
-            login(module.params["commcell"])
-            create_object(module.params["entity"])
+            _login = login(module.params["commcell"])
+            result["login"] = _login
+            _create_object = create_object(module.params["entity"])
+            result["create"] = _create_object
         except SDKException as sdk_exception:
+            result["failed"] = True
             module.fail_json(to_text(sdk_exception))
         # module.exit_json(**module.params['entity'])
 
@@ -327,7 +331,7 @@ def main():
         method = module.params["operation"]
 
         if not hasattr(obj, method):
-            obj_name = "{}s".format(module.params["entity_type"])
+            obj_name = "{0}s".format(module.params["entity_type"])
             obj = eval(obj_name)
 
         statement = "{0}.{1}".format(obj_name, method)
@@ -346,10 +350,12 @@ def main():
                     statement
                 )
                 try:
-                    _ = exec(statement)
+                    _exec = exec(statement)
+                    result = ["exec"] = _exec
                     result["output"] = "Property set successfully"
                     module.exit_json(**result)
                 except SDKException as sdk_exception:
+                    result["failed"] = True
                     module.fail_json(to_text(sdk_exception))
 
         output = eval(statement)
