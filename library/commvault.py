@@ -377,7 +377,11 @@ def main():
                     result["failed"] = True
                     module.fail_json(msg=to_text(sdk_exception), **result)
 
-        output = eval(statement)
+        try:
+            output = eval(statement)
+        except SDKException as sdk_exception:
+            result["failed"] = True
+            module.fail_json(msg=to_text(sdk_exception), **result)            
 
         if type(output).__module__ in ["builtins", "__builtin__"]:
             result["output"] = output
