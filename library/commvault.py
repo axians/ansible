@@ -317,10 +317,8 @@ def main():
             module.fail_json(to_text(sdk_exception))
     else:
         try:
-            _login = login(module.params["commcell"])
-            result["login"] = _login
-            _create_object = create_object(module.params["entity"])
-            result["create"] = _create_object
+            _ = login(module.params["commcell"])
+            _ = create_object(module.params["entity"])
         except SDKException as sdk_exception:
             result["failed"] = True
             module.fail_json(to_text(sdk_exception))
@@ -350,8 +348,7 @@ def main():
                     statement
                 )
                 try:
-                    _exec = exec(statement)
-                    result = ["exec"] = _exec
+                    _ = exec(statement)
                     result["output"] = "Property set successfully"
                     module.exit_json(**result)
                 except SDKException as sdk_exception:
